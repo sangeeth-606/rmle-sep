@@ -1,0 +1,29 @@
+{
+    "baseline": {
+        "mae": 210.82722735070612,
+        "rmse": 657.7413026874092,
+        "mape": 0.11712973492875589
+    },
+    "final": {
+        "mae": 130.06916289980236,
+        "rmse": 637.9860053372067,
+        "mape": 0.05569526129352212,
+        "r2": 0.8245973479811417,
+        "improvement_mae_pct": 38.3053296605588,
+        "improvement_rmse_pct": 3.0035056745693125,
+        "improvement_mape_pct": 52.44993824377837,
+        "cv_summary": {
+            "best_cv_mae": 141.70514696825336,
+            "cv_splits": 4,
+            "n_iter": 16
+        },
+        "best_params": {
+            "subsample": 1.0,
+            "n_estimators": 200,
+            "min_child_weight": 5,
+            "max_depth": 5,
+            "learning_rate": 0.03,
+            "colsample_bytree": 1.0
+        }
+    }
+}

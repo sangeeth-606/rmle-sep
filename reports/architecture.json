@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Freight Rate ML Prediction Pipeline",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "training-flow",
+        "label": "1. Training Pipeline",
+        "focus": ["train_data", "feature_pipeline", "model_trainer", "model_artifact"],
+        "note": "Chronological training with TimeSeriesSplit CV and pipeline metadata bundling."
+      },
+      {
+        "id": "val-inference",
+        "label": "2. Validation Inference",
+        "focus": ["val_data", "val_inference", "model_artifact", "val_preds_csv", "scorer"],
+        "note": "Forward batch scoring on 12,000 loads with positivity floor."
+      },
+      {
+        "id": "dec-inference",
+        "label": "3. December Reconstitution",
+        "focus": ["dec_data", "dec_reconstitute", "model_artifact", "dec_inference", "dec_preds_csv", "scorer"],
+        "note": "Self-contained reconstruction from serialized metadata without runtime CSV dependencies."
+      }
+    ]
+  },
+  "components": [
+    { "id": "train_data", "type": "database", "label": "train_test.csv", "sublabel": "Jan–Oct 2025 Labeled Loads", "pos": [40, 100], "size": [170, 64] },
+    { "id": "feature_pipeline", "type": "backend", "label": "Feature Pipeline", "sublabel": "Haversine • Cyclics • Imputer", "pos": [270, 100], "size": [170, 64], "tag": "No Tree Clipping" },
+    { "id": "model_trainer", "type": "backend", "label": "Model Trainer", "sublabel": "TimeSeriesSplit • log1p XGB", "pos": [500, 100], "size": [170, 64], "tag": "CV MAE $141.71" },
+    { "id": "model_artifact", "type": "database", "label": "model_pipeline.joblib", "sublabel": "Fitted Pipeline + Metadata", "pos": [730, 100], "size": [180, 64], "tag": "Self-Contained" },
+
+    { "id": "val_data", "type": "database", "label": "validation.csv", "sublabel": "Nov–Dec 2025 (12,000 Loads)", "pos": [40, 260], "size": [170, 64] },
+    { "id": "val_inference", "type": "backend", "label": "Validation Predictor", "sublabel": "Batch Preprocess & Floor", "pos": [500, 260], "size": [170, 64] },
+    { "id": "val_preds_csv", "type": "database", "label": "validation_predictions.csv", "sublabel": "12,000 Final Predictions", "pos": [730, 260], "size": [180, 64] },
+
+    { "id": "dec_data", "type": "database", "label": "december_chart_inputs.csv", "sublabel": "31 Rows (Missing Signals)", "pos": [40, 420], "size": [170, 64] },
+    { "id": "dec_reconstitute", "type": "backend", "label": "December Reconstitution", "sublabel": "In-Distribution Lat/Lon Lookups", "pos": [270, 420], "size": [170, 64], "tag": "Artifact Lookups" },
+    { "id": "dec_inference", "type": "backend", "label": "December Predictor", "sublabel": "Preserves 7-Column Schema", "pos": [500, 420], "size": [170, 64] },
+    { "id": "dec_preds_csv", "type": "database", "label": "december_predictions.csv", "sublabel": "31 Daily Rate Predictions", "pos": [730, 420], "size": [180, 64] },
+
+    { "id": "scorer", "type": "security", "label": "assessment/score.py", "sublabel": "Official Evaluator Harness", "pos": [970, 260], "size": [170, 64], "tag": "Zero Tolerance" },
+    { "id": "deliverables", "type": "cloud", "label": "candidate_december.png", "sublabel": "Verified December Rate Chart", "pos": [970, 420], "size": [170, 64] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Training Pipeline Flow", "wraps": ["train_data", "feature_pipeline", "model_trainer", "model_artifact"] },
+    { "kind": "region", "label": "Validation Inference Flow", "wraps": ["val_data", "val_inference", "val_preds_csv"] },
+    { "kind": "region", "label": "December Reconstitution & Inference", "wraps": ["dec_data", "dec_reconstitute", "dec_inference", "dec_preds_csv"] },
+    { "kind": "security-group", "label": "Official Verification Gate", "wraps": ["scorer", "deliverables"] }
+  ],
+  "connections": [
+    { "id": "train-to-feat", "from": "train_data", "to": "feature_pipeline", "variant": "emphasis" },
+    { "id": "feat-to-train", "from": "feature_pipeline", "to": "model_trainer" },
+    { "id": "train-to-art", "from": "model_trainer", "to": "model_artifact", "variant": "emphasis" },
+
+    { "id": "val-to-inf", "from": "val_data", "to": "val_inference" },
+    { "id": "art-to-val", "from": "model_artifact", "to": "val_inference", "fromSide": "bottom", "toSide": "top" },
+    { "id": "val-to-csv", "from": "val_inference", "to": "val_preds_csv", "variant": "emphasis" },
+
+    { "id": "dec-to-recon", "from": "dec_data", "to": "dec_reconstitute" },
+    { "id": "recon-to-inf", "from": "dec_reconstitute", "to": "dec_inference" },
+    { "id": "val-inf-to-dec-inf", "from": "val_inference", "to": "dec_inference", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "inf-to-dec-csv", "from": "dec_inference", "to": "dec_preds_csv", "variant": "emphasis" },
+
+    { "id": "val-to-score", "from": "val_preds_csv", "to": "scorer" },
+    { "id": "dec-to-score", "from": "dec_preds_csv", "to": "scorer", "fromSide": "right", "toSide": "bottom" },
+    { "id": "score-to-chart", "from": "scorer", "to": "deliverables", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Training Flow", "items": ["Jan–Oct 2025 dataset with chronological TimeSeriesSplit (4 folds)", "Harmonic sin/cos cyclical encoding avoids tree extrapolation clipping", "Serializes trained pipeline + lookup metadata into model_pipeline.joblib"] },
+    { "dot": "emerald", "title": "Decoupled Inference", "items": ["Validation scores 12,000 loads with positivity floor (>= $1.0)", "December branch reconstructs in-distribution coordinates and market signals directly from artifact metadata (zero runtime CSV dependencies)"] },
+    { "dot": "rose", "title": "Official Evaluation", "items": ["assessment/score.py rigorously validates row counts, column formats, and positivity", "Outputs candidate_december.png chart for submission report"] }
+  ]
+}
